@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>開發票金額編列小幫手</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>開發票金額編列小幫手</h1>
+    <p class="subtitle">輸入各品項的數量與單價，自動計算未稅、營業稅與含稅總額；也可以先給目標總金額，再由現有品項單價推估建議編列方式。</p>
+  </header>
+
+  <main>
+    <section>
+      <div class="section-head">
+        <div>
+          <h2>發票明細</h2>
+          <p class="hint">單價可選「未稅」或「含稅」。台灣常見營業稅率預設為 5%，可依實際情況調整。</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" id="addRow">新增品項</button>
+          <button type="button" class="secondary" id="copySummary">複製摘要</button>
+          <button type="button" class="secondary" id="printInvoice">列印草稿</button>
+        </div>
+      </div>
+
+      <div class="settings">
+        <label>
+          發票類型
+          <select id="invoiceType">
+            <option value="triplicate">三聯式，買受人為營業人</option>
+            <option value="duplicate">二聯式，買受人為非營業人</option>
+          </select>
+        </label>
+        <label>
+          開立日期
+          <input type="date" id="invoiceDate">
+        </label>
+        <label>
+          發票字軌號碼
+          <input type="text" id="invoiceNo" placeholder="例如 AB12345678">
+        </label>
+        <label>
+          備註
+          <input type="text" id="invoiceMemo" placeholder="例如 合約尾款、專案款">
+        </label>
+      </div>
+
+      <div class="buyer-fields" id="buyerFields">
+        <label>
+          買受人名稱
+          <input type="text" id="buyerName" placeholder="公司或商號名稱">
+        </label>
+        <label>
+          買受人統一編號
+          <div class="lookup-actions">
+            <input type="text" id="buyerTaxId" inputmode="numeric" maxlength="8" placeholder="8 碼統編">
+            <button type="button" class="secondary" id="lookupByTaxId">查詢</button>
+          </div>
+          <span class="status" id="taxIdStatus"></span>
+        </label>
+        <label>
+          買受人地址
+          <input type="text" id="buyerAddress" placeholder="選填">
+        </label>
+        <div class="lookup-results" id="companyLookupResults"></div>
+      </div>
+
+      <div class="validation" id="validationBox"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 28%;">品項</th>
+              <th style="width: 10%;">數量</th>
+              <th style="width: 13%;">單價</th>
+              <th style="width: 12%;">單價類型</th>
+              <th style="width: 12%;">稅別</th>
+              <th style="width: 12%;">未稅小計</th>
+              <th style="width: 13%;">稅額</th>
+              <th style="width: 13%;">含稅小計</th>
+              <th style="width: 8%;">反推</th>
+              <th class="row-action">操作</th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody"></tbody>
+        </table>
+      </div>
+
+      <div class="summary">
+        <div class="metric">
+          <span>未稅合計</span>
+          <strong id="subtotal">$0</strong>
+        </div>
+        <div class="metric">
+          <span>營業稅</span>
+          <strong id="tax">$0</strong>
+        </div>
+        <div class="metric">
+          <span>含稅總額</span>
+          <strong id="total">$0</strong>
+        </div>
+        <div class="metric">
+          <span>品項數</span>
+          <strong id="itemCount">0</strong>
+        </div>
+        <div class="metric">
+          <span>中文大寫總額</span>
+          <strong id="totalChinese">零元整</strong>
+        </div>
+      </div>
+
+      <div class="print-preview" id="printPreview"></div>
+    </section>
+
+    <aside>
+      <div class="section-head">
+        <div>
+          <h2>目標金額反推</h2>
+          <p class="hint">先填目標總額，再用左側品項的單價找接近的數量組合。</p>
+        </div>
+      </div>
+      <div class="side-body">
+        <div class="form-grid">
+          <label class="field">
+            目標金額
+            <input type="number" min="0" step="1" id="targetAmount" placeholder="例如 30000">
+          </label>
+          <label class="field">
+            目標類型
+            <select id="targetType">
+              <option value="taxed">含稅總額</option>
+              <option value="untaxed">未稅金額</option>
+            </select>
+          </label>
+          <label class="field">
+            稅率
+            <input type="number" min="0" step="0.1" id="taxRate" value="5">
+          </label>
+          <label class="field">
+            每項最大數量
+            <input type="number" min="1" step="1" id="maxQty" value="20">
+          </label>
+          <button type="button" id="suggest">產生建議</button>
+          <button type="button" class="secondary" id="applyBest">套用最佳建議</button>
+        </div>
+
+        <div class="notice">提醒：反推建議只能用於實際交易已存在的品項與單價，不應為了湊金額創造不存在的品名、數量或服務內容。</div>
+        <div id="suggestions"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
