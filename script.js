@@ -525,45 +525,109 @@ const state = {
     }
 
     function renderInvoicePaper(data) {
-      const rows = data.activeRows.slice(0, 5);
+      const rows = data.activeRows.slice(0, 6);
+      while (rows.length < 6) rows.push(null);
       const taxTypes = new Set(data.activeRows.map((row) => row.taxType));
       const displayTaxType = taxTypes.size === 1 ? [...taxTypes][0] : "mixed";
       const dateParts = getRocDateParts(data.invoiceDate);
-      const rowTop = [37.2, 43.5, 49.6, 55.7, 61.8];
-      const rowHtml = rows.map((row, index) => {
-        const amount = rowAmounts(row, data.taxRate);
-        const note = index === 0 ? data.memo : "";
-        return `
-          ${renderInvoiceField("invoice-item-name", row.name, { top: rowTop[index], left: 9.2, width: 20.3 })}
-          ${renderInvoiceField("invoice-item-qty", formatPlain(row.qty), { top: rowTop[index], left: 33.2, width: 4.6 })}
-          ${renderInvoiceField("invoice-item-unit", formatPlain(row.unit), { top: rowTop[index], left: 43.2, width: 6.2 })}
-          ${renderInvoiceField("invoice-item-amount", formatPlain(amount.untaxed), { top: rowTop[index], left: 56.5, width: 8.2 })}
-          ${renderInvoiceField("invoice-item-note", note, { top: rowTop[index], left: 70.2, width: 17.4 })}
-        `;
-      }).join("");
+      const invoicePrefix = String(data.invoiceNo || "JB").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "JB";
       const buyerName = data.invoiceType === "triplicate" ? data.buyerName : "";
       const buyerTaxId = data.invoiceType === "triplicate" ? data.buyerTaxId : "";
       const buyerAddress = data.invoiceType === "triplicate" ? data.buyerAddress : "";
-      const shouldShowTotals = rows.length > 0 || data.totals.total > 0;
+      const rowHtml = rows.map((row) => {
+        if (!row) {
+          return `
+            <tr>
+              <td>&nbsp;</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          `;
+        }
+        const amount = rowAmounts(row, data.taxRate);
+        return `
+          <tr>
+            <td class="item-name">${escapeHtml(row.name)}</td>
+            <td class="num">${formatPlain(row.qty)}</td>
+            <td class="num">${formatPlain(row.unit)}</td>
+            <td class="num">${formatPlain(amount.untaxed)}</td>
+            <td>${escapeHtml(data.memo)}</td>
+          </tr>
+        `;
+      }).join("");
 
       return `
-        <div class="invoice-image-stage" aria-label="三聯式發票草稿預覽">
-          <img src="assets/invoice-template.png" alt="三聯式統一發票範例底圖">
-          ${renderInvoiceMasks()}
-          ${renderInvoiceField("invoice-period-year", dateParts.periodYear)}
-          ${renderInvoiceField("invoice-period-months", `${dateParts.periodStart}、${dateParts.periodEnd}`)}
-          ${renderInvoiceField("invoice-buyer", buyerName)}
-          ${renderTaxIdOverlay(buyerTaxId)}
-          ${renderInvoiceField("invoice-roc-year", dateParts.rocYear)}
-          ${renderInvoiceField("invoice-month", dateParts.month)}
-          ${renderInvoiceField("invoice-day", dateParts.day)}
-          ${renderInvoiceField("invoice-address", buyerAddress)}
-          ${rowHtml}
-          ${shouldShowTotals ? renderInvoiceField("invoice-sales-total", formatPlain(data.totals.subtotal)) : ""}
-          ${shouldShowTotals ? renderInvoiceField("invoice-tax-check", displayTaxType === "taxable" ? "∨" : "") : ""}
-          ${shouldShowTotals ? renderInvoiceField("invoice-tax-total", formatPlain(data.totals.taxTotal)) : ""}
-          ${shouldShowTotals ? renderInvoiceField("invoice-grand-total", formatPlain(data.totals.total)) : ""}
-          ${shouldShowTotals ? renderInvoiceField("invoice-grand-chinese", toChineseMoney(data.totals.total).replace("元整", "")) : ""}
+        <div class="invoice-paper invoice-template" aria-label="三聯式發票草稿預覽">
+          <div class="invoice-title">
+            <div class="invoice-code">${escapeHtml(invoicePrefix)}</div>
+            <h2>統一發票（三聯式）</h2>
+            <div></div>
+          </div>
+          <div class="invoice-period">${dateParts.periodYear}年　${dateParts.periodStart}、${dateParts.periodEnd}月份</div>
+          <div class="invoice-head-row">
+            <div>買受人：<span class="invoice-fill">${escapeHtml(buyerName)}</span></div>
+            <div class="invoice-date-text">
+              中華民國 <span class="invoice-fill">${dateParts.rocYear}</span> 年
+              <span class="invoice-fill">${dateParts.month}</span> 月
+              <span class="invoice-fill">${dateParts.day}</span> 日
+            </div>
+          </div>
+          <div class="invoice-head-row">
+            <div class="invoice-tax-id-line">
+              <span>統一編號：</span>
+              ${renderTaxIdBoxes(buyerTaxId)}
+            </div>
+            <div></div>
+          </div>
+          <div class="invoice-address-line">
+            <span>地址：</span>
+            <div class="invoice-address-rule">${escapeHtml(buyerAddress)}</div>
+            <span class="invoice-address-optional">可省略</span>
+          </div>
+          <div class="invoice-main-grid">
+            <div>
+              <table class="invoice-lines">
+                <thead>
+                  <tr>
+                    <th style="width: 40%;">品名</th>
+                    <th style="width: 14%;">數量</th>
+                    <th style="width: 16%;">單價</th>
+                    <th style="width: 22%;">金額</th>
+                    <th style="width: 8%;">備註</th>
+                  </tr>
+                </thead>
+                <tbody>${rowHtml}</tbody>
+              </table>
+              <table class="invoice-total-table">
+                <tr>
+                  <td colspan="3">銷售額合計</td>
+                  <td class="blue">${formatPlain(data.totals.subtotal)}</td>
+                </tr>
+                <tr>
+                  <td>營業稅</td>
+                  <td>${renderTaxCheck("應稅", displayTaxType === "taxable")}</td>
+                  <td>${renderTaxCheck("零稅率", displayTaxType === "zero")} ${renderTaxCheck("免稅", displayTaxType === "exempt")} ${renderTaxCheck("混合", displayTaxType === "mixed")}</td>
+                  <td class="blue">${formatPlain(data.totals.taxTotal)}</td>
+                </tr>
+                <tr>
+                  <td colspan="3">總計</td>
+                  <td class="blue">${formatPlain(data.totals.total)}</td>
+                </tr>
+              </table>
+            </div>
+            <div class="invoice-right-panel">
+              <div class="invoice-note-box">營業人蓋用統一發票專用章</div>
+              <div class="invoice-stamp-reminder">記得要蓋<br>發票章唷</div>
+            </div>
+          </div>
+          <div class="invoice-grand-line">
+            <span>總計新臺幣<br>（中文大寫）</span>
+            <strong>${toChineseMoney(data.totals.total)}</strong>
+            <span>元</span>
+          </div>
+          <div class="invoice-footer-tip">※應稅、零稅率、免稅之銷售額應分別開立統一發票，並應於各該欄打「✓」。</div>
         </div>
       `;
     }
