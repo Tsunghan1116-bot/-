@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>開發票金額編列小幫手</title>
-  <link rel="stylesheet" href="style.css?v=20260715b">
+  <link rel="stylesheet" href="style.css?v=20260715c">
 </head>
 <body>
   <header class="app-hero">
@@ -146,7 +146,7 @@
         <div>
           <p class="section-kicker">Step 02</p>
           <h2>金額編列建議</h2>
-          <p class="hint">輸入目標金額後，用已建立的品項單價試算接近組合。</p>
+          <p class="hint">輸入總額與服務類型，產生可直接填入手開發票的合理明細。</p>
         </div>
       </div>
       <div class="side-body">
@@ -167,19 +167,44 @@
             <input type="number" min="0" step="0.1" id="taxRate" value="5">
           </label>
           <label class="field">
-            每項最大數量
-            <input type="number" min="1" step="1" id="maxQty" value="20">
+            服務類型
+            <select id="serviceType">
+              <option value="consulting">顧問服務</option>
+              <option value="teaching">教學課程</option>
+              <option value="system">系統建置</option>
+              <option value="design">設計製作</option>
+              <option value="event">活動執行</option>
+              <option value="content">教材內容</option>
+              <option value="general">一般服務</option>
+            </select>
+          </label>
+          <label class="field">
+            拆分筆數
+            <select id="splitCount">
+              <option value="3">3 筆，最常用</option>
+              <option value="2">2 筆，簡潔</option>
+              <option value="4">4 筆，較細</option>
+              <option value="5">5 筆，填滿紙本</option>
+            </select>
+          </label>
+          <label class="field">
+            編列風格
+            <select id="allocationStyle">
+              <option value="main-heavy">主服務占比較高</option>
+              <option value="balanced">平均但不死板</option>
+              <option value="support-heavy">執行與輔助占比較高</option>
+            </select>
           </label>
           <button type="button" id="suggest">產生建議</button>
           <button type="button" class="secondary" id="applyBest">套用最佳建議</button>
         </div>
 
-        <div class="notice">提醒：反推建議只能用於實際交易已存在的品項與單價，不應為了湊金額創造不存在的品名、數量或服務內容。</div>
+        <div class="notice">提醒：編列建議是把實際服務內容整理成發票明細，不應為了湊金額創造不存在的交易、品名或數量。</div>
         <div id="suggestions"></div>
       </div>
     </aside>
   </main>
 
-  <script src="script.js?v=20260715b"></script>
+  <script src="script.js?v=20260715c"></script>
 </body>
 </html>
