@@ -832,10 +832,10 @@ td select {
   position: relative;
   max-width: 920px;
   margin: 0 auto;
-  padding: 18px;
+  padding: 14px;
   color: #17212b;
   background: #fffdf4;
-  border: 2px solid #334155;
+  border: 1px solid #6b7280;
   box-shadow: var(--shadow-soft);
 }
 
@@ -861,9 +861,9 @@ td select {
 
 .invoice-template {
   font-family: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
-  max-width: 940px;
-  padding: 18px 34px 28px;
-  border: 2px solid #ff8a63;
+  max-width: 860px;
+  padding: 14px 28px 22px;
+  border: 1px solid #ff9b78;
   border-radius: 6px;
   background: #fffefb;
 }
@@ -873,21 +873,21 @@ td select {
 }
 
 .invoice-template .invoice-title {
-  grid-template-columns: 76px 1fr 76px;
-  margin-bottom: 4px;
+  grid-template-columns: 60px 1fr 60px;
+  margin-bottom: 2px;
 }
 
 .invoice-template h2 {
   margin: 0;
-  font-size: 21px;
+  font-size: 17px;
   font-weight: 900;
-  letter-spacing: 10px;
+  letter-spacing: 6px;
 }
 
 .invoice-code {
   justify-self: start;
   font-family: Arial, sans-serif;
-  font-size: 21px;
+  font-size: 17px;
   font-weight: 800;
 }
 
@@ -895,9 +895,9 @@ td select {
   text-align: center;
   font-family: Arial, "Noto Sans TC", sans-serif;
   color: #008de8;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 800;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .invoice-head-row {
@@ -906,14 +906,14 @@ td select {
   gap: 12px;
   align-items: end;
   margin-bottom: 2px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .invoice-fill {
   display: inline-block;
-  min-width: 78px;
-  padding: 0 6px 2px;
+  min-width: 62px;
+  padding: 0 4px 1px;
   color: #008de8;
   font-family: Arial, "Noto Sans TC", sans-serif;
   font-weight: 800;
@@ -936,7 +936,7 @@ td select {
 
 .invoice-template .tax-id-boxes {
   display: inline-grid;
-  grid-template-columns: repeat(8, 21px);
+  grid-template-columns: repeat(8, 18px);
   gap: 0;
   margin: 0;
   max-width: none;
@@ -953,12 +953,12 @@ td select {
 }
 
 .invoice-template .tax-id-boxes span {
-  min-height: 24px;
+  min-height: 20px;
   border: 1px solid #111827;
   border-left: 0;
   color: #008de8;
   font-family: Arial, sans-serif;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .invoice-template .tax-id-boxes span:first-child {
@@ -975,15 +975,15 @@ td select {
   grid-template-columns: auto 1fr auto;
   align-items: end;
   gap: 8px;
-  margin: 2px 0 7px;
-  font-size: 14px;
+  margin: 1px 0 6px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .invoice-address-rule {
-  min-height: 19px;
+  min-height: 16px;
   color: #008de8;
-  border-bottom: 5px solid #ffb199;
+  border-bottom: 3px solid #ffb199;
   font-family: Arial, "Noto Sans TC", sans-serif;
   font-weight: 700;
 }
@@ -991,13 +991,13 @@ td select {
 .invoice-address-optional {
   color: #ff7043;
   font-family: "Noto Sans TC", sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .invoice-main-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2.45fr) minmax(180px, 0.75fr);
+  grid-template-columns: minmax(0, 2.7fr) minmax(145px, 0.62fr);
   align-items: stretch;
 }
 
@@ -1010,24 +1010,24 @@ td select {
 }
 
 .invoice-template .invoice-lines {
-  border: 1px solid #111827;
+  border: 1px solid #1f2937;
   border-right: 0;
 }
 
 .invoice-template .invoice-lines th,
 .invoice-template .invoice-lines td {
-  height: 29px;
-  padding: 2px 6px;
-  border: 1px solid #111827;
+  height: 23px;
+  padding: 1px 5px;
+  border: 1px solid #1f2937;
   color: #111827;
   background: #fff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
 }
 
 .invoice-template .invoice-lines th {
   text-align: center;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 
 .invoice-template .invoice-lines td {
@@ -1036,49 +1036,49 @@ td select {
 }
 
 .invoice-template .invoice-lines .item-name {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .invoice-right-panel {
   display: grid;
-  grid-template-rows: 62px 1fr;
-  border: 1px solid #111827;
+  grid-template-rows: 48px 1fr;
+  border: 1px solid #1f2937;
   background: #f4f8ff;
 }
 
 .invoice-note-box {
-  padding: 9px 12px;
-  border-bottom: 1px solid #111827;
+  padding: 7px 9px;
+  border-bottom: 1px solid #1f2937;
   background: #fff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
 .invoice-stamp-reminder {
   display: grid;
   place-items: center;
-  padding: 12px;
+  padding: 10px;
   color: #2f73c8;
   font-family: "Noto Sans TC", sans-serif;
-  font-size: clamp(24px, 3.9vw, 38px);
+  font-size: clamp(18px, 2.8vw, 28px);
   font-weight: 900;
-  line-height: 1.65;
+  line-height: 1.55;
   text-align: center;
   background: #eaf3ff;
 }
 
 .invoice-total-table {
-  border: 1px solid #111827;
+  border: 1px solid #1f2937;
   border-top: 0;
   border-right: 0;
 }
 
 .invoice-total-table td {
-  height: 28px;
-  padding: 3px 7px;
-  border: 1px solid #111827;
-  font-size: 13px;
+  height: 23px;
+  padding: 2px 6px;
+  border: 1px solid #1f2937;
+  font-size: 11px;
   font-weight: 900;
 }
 
@@ -1097,11 +1097,11 @@ td select {
 .invoice-check span {
   display: inline-grid;
   place-items: center;
-  width: 15px;
-  height: 15px;
+  width: 12px;
+  height: 12px;
   border: 1px solid #334155;
   background: #fff;
-  font-size: 11px;
+  font-size: 9px;
 }
 
 .invoice-grand-line {
@@ -1109,8 +1109,8 @@ td select {
   grid-template-columns: auto 1fr auto;
   gap: 10px;
   align-items: center;
-  padding: 7px 0 0;
-  font-size: 14px;
+  padding: 6px 0 0;
+  font-size: 12px;
   font-weight: 900;
 }
 
