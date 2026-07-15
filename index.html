@@ -7,23 +7,59 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>開發票金額編列小幫手</h1>
-    <p class="subtitle">輸入各品項的數量與單價，自動計算未稅、營業稅與含稅總額；也可以先給目標總金額，再由現有品項單價推估建議編列方式。</p>
+  <header class="app-hero">
+    <div>
+      <p class="eyebrow">Invoice Workspace</p>
+      <h1>開發票金額編列小幫手</h1>
+      <p class="subtitle">從客戶資料、品項明細到三聯式草稿，一頁完成手開發票前的試算與檢查。</p>
+    </div>
+    <div class="hero-actions" aria-label="工具狀態">
+      <span>離線可試算</span>
+      <span>統編可查詢</span>
+      <span>支援列印草稿</span>
+    </div>
   </header>
 
   <main>
-    <section>
+    <section class="workspace-panel">
       <div class="section-head">
         <div>
-          <h2>發票明細</h2>
-          <p class="hint">單價可選「未稅」或「含稅」。台灣常見營業稅率預設為 5%，可依實際情況調整。</p>
+          <p class="section-kicker">Step 01</p>
+          <h2>發票工作台</h2>
+          <p class="hint">先確認發票資訊與買受人，再編列品項與金額。</p>
         </div>
         <div class="toolbar">
           <button type="button" id="addRow">新增品項</button>
           <button type="button" class="secondary" id="copySummary">複製摘要</button>
           <button type="button" class="secondary" id="printInvoice">列印草稿</button>
         </div>
+      </div>
+
+      <div class="summary">
+        <div class="metric">
+          <span>未稅合計</span>
+          <strong id="subtotal">$0</strong>
+        </div>
+        <div class="metric">
+          <span>營業稅</span>
+          <strong id="tax">$0</strong>
+        </div>
+        <div class="metric highlight">
+          <span>含稅總額</span>
+          <strong id="total">$0</strong>
+        </div>
+        <div class="metric">
+          <span>品項數</span>
+          <strong id="itemCount">0</strong>
+        </div>
+        <div class="metric wide-metric">
+          <span>中文大寫總額</span>
+          <strong id="totalChinese">零元整</strong>
+        </div>
+      </div>
+
+      <div class="subsection-title">
+        <span>發票資訊</span>
       </div>
 
       <div class="settings">
@@ -48,6 +84,10 @@
         </label>
       </div>
 
+      <div class="subsection-title">
+        <span>買受人資料</span>
+      </div>
+
       <div class="buyer-fields" id="buyerFields">
         <label>
           買受人名稱
@@ -70,6 +110,10 @@
 
       <div class="validation" id="validationBox"></div>
 
+      <div class="subsection-title">
+        <span>品項明細</span>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -90,37 +134,19 @@
         </table>
       </div>
 
-      <div class="summary">
-        <div class="metric">
-          <span>未稅合計</span>
-          <strong id="subtotal">$0</strong>
-        </div>
-        <div class="metric">
-          <span>營業稅</span>
-          <strong id="tax">$0</strong>
-        </div>
-        <div class="metric">
-          <span>含稅總額</span>
-          <strong id="total">$0</strong>
-        </div>
-        <div class="metric">
-          <span>品項數</span>
-          <strong id="itemCount">0</strong>
-        </div>
-        <div class="metric">
-          <span>中文大寫總額</span>
-          <strong id="totalChinese">零元整</strong>
-        </div>
+      <div class="subsection-title">
+        <span>三聯式草稿預覽</span>
       </div>
 
       <div class="print-preview" id="printPreview"></div>
     </section>
 
-    <aside>
+    <aside class="strategy-panel">
       <div class="section-head">
         <div>
-          <h2>目標金額反推</h2>
-          <p class="hint">先填目標總額，再用左側品項的單價找接近的數量組合。</p>
+          <p class="section-kicker">Step 02</p>
+          <h2>金額編列建議</h2>
+          <p class="hint">輸入目標金額後，用已建立的品項單價試算接近組合。</p>
         </div>
       </div>
       <div class="side-body">
