@@ -531,6 +531,303 @@ td select {
   background: #f8fafc;
 }
 
+.invoice-image-stage {
+  position: relative;
+  max-width: 1180px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.invoice-image-stage img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.invoice-field {
+  position: absolute;
+  z-index: 3;
+  display: block;
+  color: #009be8;
+  font-family: Arial, "Noto Sans TC", sans-serif;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.invoice-mask {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.97);
+}
+
+.invoice-period-year {
+  top: 10.15%;
+  left: 43.1%;
+  width: 4.3%;
+  font-size: clamp(10px, 1.22vw, 17px);
+  text-align: center;
+}
+
+.invoice-period-months {
+  top: 10.15%;
+  left: 51.1%;
+  width: 8.2%;
+  font-size: clamp(10px, 1.22vw, 17px);
+  text-align: center;
+}
+
+.invoice-buyer {
+  top: 16.4%;
+  left: 16.7%;
+  width: 24%;
+  font-size: clamp(11px, 1.36vw, 18px);
+}
+
+.invoice-taxid-overlay {
+  position: absolute;
+  z-index: 3;
+  top: 20.75%;
+  left: 16.1%;
+  width: 27.2%;
+  height: 3.8%;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  color: #009be8;
+  font-family: Arial, "Noto Sans TC", sans-serif;
+  font-weight: 700;
+  font-size: clamp(10px, 1.32vw, 18px);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.invoice-taxid-overlay span {
+  display: grid;
+  place-items: center;
+}
+
+.invoice-roc-year {
+  top: 22.15%;
+  left: 56.4%;
+  width: 5%;
+  font-size: clamp(10px, 1.32vw, 18px);
+  text-align: center;
+}
+
+.invoice-month {
+  top: 22.15%;
+  left: 63.8%;
+  width: 3%;
+  font-size: clamp(10px, 1.32vw, 18px);
+  text-align: center;
+}
+
+.invoice-day {
+  top: 22.15%;
+  left: 69.8%;
+  width: 3.2%;
+  font-size: clamp(10px, 1.32vw, 18px);
+  text-align: center;
+}
+
+.invoice-address {
+  top: 26.85%;
+  left: 15.4%;
+  width: 70%;
+  font-size: clamp(8px, 0.95vw, 13px);
+  color: #0b8fd6;
+  font-weight: 650;
+}
+
+.invoice-item-name {
+  font-size: clamp(10px, 1.28vw, 17px);
+  text-align: left;
+}
+
+.invoice-item-qty,
+.invoice-item-unit,
+.invoice-item-amount,
+.invoice-sales-total,
+.invoice-tax-total,
+.invoice-grand-total {
+  font-size: clamp(10px, 1.34vw, 18px);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoice-item-note {
+  font-size: clamp(8px, 0.95vw, 13px);
+  color: #2f73c8;
+  font-weight: 650;
+}
+
+.invoice-sales-total {
+  top: 69.95%;
+  left: 56.6%;
+  width: 8%;
+}
+
+.invoice-tax-check {
+  top: 78.75%;
+  left: 27.6%;
+  width: 2.7%;
+  font-size: clamp(12px, 1.48vw, 20px);
+  text-align: center;
+}
+
+.invoice-tax-total {
+  top: 78.15%;
+  left: 56.6%;
+  width: 8%;
+}
+
+.invoice-grand-total {
+  top: 84.0%;
+  left: 56.6%;
+  width: 8%;
+}
+
+.invoice-grand-chinese {
+  top: 91.85%;
+  left: 17.2%;
+  width: 48%;
+  color: #111827;
+  font-family: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: clamp(10px, 1.22vw, 17px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.mask-period-year {
+  top: 9.65%;
+  left: 42.6%;
+  width: 5.2%;
+  height: 2.55%;
+}
+
+.mask-period-months {
+  top: 9.65%;
+  left: 50.9%;
+  width: 8.9%;
+  height: 2.55%;
+}
+
+.mask-buyer {
+  top: 15.9%;
+  left: 16.2%;
+  width: 11.5%;
+  height: 3.0%;
+}
+
+.mask-taxid {
+  top: 20.5%;
+  left: 16.3%;
+  width: 6.4%;
+  height: 3.2%;
+}
+
+.mask-date-year {
+  top: 21.75%;
+  left: 56.0%;
+  width: 5.5%;
+  height: 3.0%;
+}
+
+.mask-date-month {
+  top: 21.75%;
+  left: 63.6%;
+  width: 3.0%;
+  height: 3.0%;
+}
+
+.mask-date-day {
+  top: 21.75%;
+  left: 69.6%;
+  width: 3.5%;
+  height: 3.0%;
+}
+
+.mask-sales-total {
+  top: 69.65%;
+  left: 61.1%;
+  width: 3.9%;
+  height: 3.0%;
+}
+
+.mask-tax-check {
+  top: 77.9%;
+  left: 27.0%;
+  width: 3.4%;
+  height: 3.0%;
+}
+
+.mask-tax-total {
+  top: 78.0%;
+  left: 61.1%;
+  width: 3.9%;
+  height: 3.0%;
+}
+
+.mask-grand-total {
+  top: 83.85%;
+  left: 61.1%;
+  width: 3.9%;
+  height: 3.0%;
+}
+
+.mask-grand-chinese {
+  top: 91.25%;
+  left: 16.6%;
+  width: 48.4%;
+  height: 3.1%;
+}
+
+.mask-row-1 {
+  --invoice-row-top: 36.0%;
+  --invoice-row-bg: rgba(221, 233, 249, 0.98);
+}
+
+.mask-item-name,
+.mask-item-qty,
+.mask-item-unit,
+.mask-item-amount {
+  top: var(--invoice-row-top);
+  height: 4.05%;
+  background: var(--invoice-row-bg);
+}
+
+.mask-item-name {
+  left: 9.4%;
+  width: 19.0%;
+}
+
+.mask-item-qty {
+  left: 33.4%;
+  width: 4.2%;
+}
+
+.mask-item-unit {
+  left: 44.2%;
+  width: 5.2%;
+}
+
+.mask-item-amount {
+  left: 59.4%;
+  width: 5.7%;
+}
+
 .invoice-paper {
   position: relative;
   max-width: 920px;
