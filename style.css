@@ -502,6 +502,29 @@ td select {
   font-size: 16px;
 }
 
+.suggestion-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.suggestion-topline h3 {
+  margin: 0;
+}
+
+.suggestion-topline span {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #0b5f59;
+  background: var(--primary-soft);
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .suggestion p {
   margin: 5px 0;
   color: var(--muted);
@@ -516,6 +539,53 @@ td select {
 .suggestion li {
   margin: 4px 0;
   line-height: 1.45;
+}
+
+.suggestion-lines {
+  min-width: 0;
+  margin-top: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  table-layout: fixed;
+}
+
+.suggestion-lines th,
+.suggestion-lines td {
+  padding: 8px 7px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.suggestion-lines th {
+  background: #f6f8fb;
+}
+
+.suggestion-lines tr:last-child td {
+  border-bottom: 0;
+}
+
+.suggestion-total {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.suggestion-total strong {
+  color: #0b5f59;
+  font-size: 15px;
+}
+
+.suggestion-note {
+  padding-top: 8px;
+  border-top: 1px dashed var(--line-strong);
+  font-size: 12px;
 }
 
 .empty {
