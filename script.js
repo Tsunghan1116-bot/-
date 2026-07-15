@@ -6,6 +6,67 @@ const state = {
 
     const COMPANY_API_BASE = "https://company.g0v.ronny.tw/api";
 
+    const serviceTemplates = {
+      consulting: {
+        label: "顧問服務",
+        items: ["專案顧問服務", "流程規劃服務", "分析報告撰寫", "會議諮詢服務", "執行建議整理"]
+      },
+      teaching: {
+        label: "教學課程",
+        items: ["課程規劃服務", "講師授課費", "教材設計製作", "課後諮詢服務", "學員資料整理"]
+      },
+      system: {
+        label: "系統建置",
+        items: ["系統功能建置", "網頁介面設計", "資料整理與設定", "測試與調整服務", "維護支援服務"]
+      },
+      design: {
+        label: "設計製作",
+        items: ["設計規劃服務", "視覺版面製作", "素材整理編修", "修正調整服務", "輸出檔案製作"]
+      },
+      event: {
+        label: "活動執行",
+        items: ["活動企劃服務", "現場執行服務", "物料設計製作", "行政協調服務", "成果資料整理"]
+      },
+      content: {
+        label: "教材內容",
+        items: ["內容架構規劃", "教材撰寫製作", "圖文編排服務", "內容校修服務", "交付資料整理"]
+      },
+      general: {
+        label: "一般服務",
+        items: ["專案服務費", "規劃執行服務", "資料整理服務", "文件製作服務", "後續支援服務"]
+      }
+    };
+
+    const allocationProfiles = {
+      "main-heavy": {
+        label: "主服務占比較高",
+        weights: {
+          2: [0.68, 0.32],
+          3: [0.56, 0.28, 0.16],
+          4: [0.46, 0.25, 0.18, 0.11],
+          5: [0.4, 0.23, 0.17, 0.12, 0.08]
+        }
+      },
+      balanced: {
+        label: "平均但不死板",
+        weights: {
+          2: [0.55, 0.45],
+          3: [0.42, 0.33, 0.25],
+          4: [0.34, 0.27, 0.22, 0.17],
+          5: [0.3, 0.24, 0.2, 0.15, 0.11]
+        }
+      },
+      "support-heavy": {
+        label: "執行與輔助占比較高",
+        weights: {
+          2: [0.48, 0.52],
+          3: [0.36, 0.34, 0.3],
+          4: [0.3, 0.27, 0.23, 0.2],
+          5: [0.26, 0.23, 0.2, 0.17, 0.14]
+        }
+      }
+    };
+
     const body = document.getElementById("itemsBody");
     const money = new Intl.NumberFormat("zh-TW", {
       style: "currency",
@@ -386,23 +447,13 @@ const state = {
       return text;
     }
 
-    function getCandidateItems() {
-      const taxRate = getTaxRate();
-      const targetType = document.getElementById("targetType").value;
-      return readRows()
-        .map((row, index) => {
-          const amount = rowAmounts({ ...row, qty: 1 }, taxRate);
-          const unit = targetType === "taxed" ? amount.unitForTargetTaxed : amount.unitForTargetUntaxed;
-          return { index, name: row.name, unit, priceType: row.priceType, sourceUnit: row.unit, adjustable: row.adjustable };
-        })
-        .filter((item) => item.unit > 0 && item.adjustable);
-    }
-
     function generateSuggestions() {
       updateTotals();
       const target = roundMoney(toNumber(document.getElementById("targetAmount").value));
-      const maxQty = Math.max(1, Math.min(999, Math.floor(toNumber(document.getElementById("maxQty").value) || 1)));
-      const items = getCandidateItems();
+      const targetType = document.getElementById("targetType").value;
+      const serviceType = document.getElementById("serviceType").value;
+      const splitCount = Math.max(2, Math.min(5, Math.floor(toNumber(document.getElementById("splitCount").value) || 3)));
+      const allocationStyle = document.getElementById("allocationStyle").value;
       const box = document.getElementById("suggestions");
       state.bestPlan = null;
 
@@ -411,71 +462,165 @@ const state = {
         return;
       }
 
-      if (!items.length) {
-        box.innerHTML = `<p class="empty">請先在左側輸入至少一個有效單價，並勾選允許反推的品項。</p>`;
-        return;
-      }
-
-      let plans = [{ total: 0, quantities: Array(items.length).fill(0) }];
-      items.forEach((item, itemIndex) => {
-        const next = [];
-        plans.forEach((plan) => {
-          for (let qty = 0; qty <= maxQty; qty += 1) {
-            const quantities = plan.quantities.slice();
-            quantities[itemIndex] = qty;
-            next.push({
-              total: plan.total + item.unit * qty,
-              quantities
-            });
-          }
-        });
-        plans = keepBestPlans(next, target, 2800);
+      const results = buildDraftPlans({
+        target,
+        targetType,
+        serviceType,
+        splitCount,
+        allocationStyle
       });
-
-      const unique = new Map();
-      plans.forEach((plan) => {
-        if (!plan.quantities.some(Boolean)) return;
-        const key = plan.quantities.join(",");
-        if (!unique.has(key)) unique.set(key, plan);
-      });
-
-      const results = [...unique.values()]
-        .map((plan) => ({ ...plan, diff: Math.abs(target - plan.total) }))
-        .sort((a, b) => a.diff - b.diff || countUsedItems(a) - countUsedItems(b) || b.total - a.total)
-        .slice(0, 5);
 
       if (!results.length) {
-        box.innerHTML = `<p class="empty">找不到可用組合，請提高每項最大數量或增加品項。</p>`;
+        box.innerHTML = `<p class="empty">目前金額太小或設定不完整，請調整目標金額或拆分筆數。</p>`;
         return;
       }
 
-      state.bestPlan = { items, plan: results[0] };
-      box.innerHTML = results.map((plan, index) => renderSuggestion(plan, items, target, index === 0)).join("");
+      state.bestPlan = { mode: "draft", plan: results[0] };
+      box.innerHTML = results.map((plan, index) => renderSuggestion(plan, target, index === 0)).join("");
     }
 
-    function keepBestPlans(plans, target, limit) {
-      return plans
-        .sort((a, b) => Math.abs(target - a.total) - Math.abs(target - b.total))
-        .slice(0, limit);
+    function buildDraftPlans({ target, targetType, serviceType, splitCount, allocationStyle }) {
+      const template = serviceTemplates[serviceType] || serviceTemplates.general;
+      const baseProfile = allocationProfiles[allocationStyle] || allocationProfiles["main-heavy"];
+      const profileOrder = [
+        baseProfile,
+        allocationProfiles["main-heavy"],
+        allocationProfiles.balanced,
+        allocationProfiles["support-heavy"]
+      ].filter((profile, index, list) => list.findIndex((entry) => entry.label === profile.label) === index);
+
+      return profileOrder
+        .map((profile, index) => {
+          const weights = profile.weights[splitCount] || allocationProfiles["main-heavy"].weights[splitCount];
+          const lineTotals = distributeAmount(target, weights, index);
+          const rows = lineTotals.map((amount, rowIndex) => ({
+            name: template.items[rowIndex] || serviceTemplates.general.items[rowIndex],
+            qty: 1,
+            unit: amount,
+            priceType: targetType,
+            taxType: "taxable",
+            adjustable: true
+          }));
+          const totals = calculatePlanTotals(rows);
+          return {
+            rows,
+            profileLabel: profile.label,
+            serviceLabel: template.label,
+            targetType,
+            total: targetType === "taxed" ? totals.total : totals.subtotal,
+            displayTotal: totals.total,
+            subtotal: totals.subtotal,
+            tax: totals.taxTotal,
+            score: scoreDraftPlan(rows, target, targetType, profile.label),
+            diff: Math.abs(target - (targetType === "taxed" ? totals.total : totals.subtotal))
+          };
+        })
+        .sort((a, b) => a.diff - b.diff || b.score.value - a.score.value)
+        .slice(0, 4);
     }
 
-    function countUsedItems(plan) {
-      return plan.quantities.filter((qty) => qty > 0).length;
+    function distributeAmount(total, weights, variantIndex = 0) {
+      let baseUnit = total >= 20000 ? 100 : 10;
+      if (total < weights.length * baseUnit) baseUnit = 1;
+      const amounts = weights.map((weight, index) => {
+        if (index === weights.length - 1) return 0;
+        const adjustedWeight = weight + (variantIndex * 0.015 * (index % 2 === 0 ? -1 : 1));
+        return Math.max(baseUnit, Math.round((total * adjustedWeight) / baseUnit) * baseUnit);
+      });
+      const used = amounts.reduce((sum, amount) => sum + amount, 0);
+      amounts[weights.length - 1] = Math.max(baseUnit, total - used);
+
+      const diff = total - amounts.reduce((sum, amount) => sum + amount, 0);
+      amounts[0] += diff;
+      return amounts.map((amount) => Math.max(1, roundMoney(amount)));
     }
 
-    function renderSuggestion(plan, items, target, isBest) {
-      const lines = plan.quantities
-        .map((qty, index) => ({ qty, item: items[index] }))
-        .filter((entry) => entry.qty > 0)
-        .map((entry) => `<li>${escapeHtml(entry.item.name)}：${entry.qty} × ${format(entry.item.unit)} = ${format(entry.qty * entry.item.unit)}</li>`)
+    function calculatePlanTotals(rows) {
+      const taxRate = getTaxRate();
+      return rows.reduce((totals, row) => {
+        const amount = rowAmounts(row, taxRate);
+        totals.subtotal += amount.untaxed;
+        totals.taxTotal += amount.tax;
+        totals.total += amount.taxed;
+        return totals;
+      }, { subtotal: 0, taxTotal: 0, total: 0 });
+    }
+
+    function scoreDraftPlan(rows, target, targetType, profileLabel) {
+      let value = 100;
+      const notes = [];
+      const amounts = rows.map((row) => row.unit);
+      const smallest = Math.min(...amounts);
+      const largest = Math.max(...amounts);
+
+      if (smallest < Math.max(500, target * 0.05)) {
+        value -= 10;
+        notes.push("有一筆金額偏小，正式開立前請確認是否必要。");
+      }
+      if (largest > target * 0.75) {
+        value -= 8;
+        notes.push("主項占比較高，適合主要服務明確的案件。");
+      }
+      if (amounts.some((amount) => amount % 10 !== 0)) {
+        value -= 8;
+        notes.push("有較零碎的單價，可能比較像硬湊。");
+      }
+      if (targetType === "taxed") {
+        notes.push("此方案以含稅總額編列，適合客戶只給總價時使用。");
+      } else {
+        notes.push("此方案以未稅金額編列，系統會另外計算營業稅。");
+      }
+      notes.push(profileLabel);
+
+      return {
+        value: Math.max(0, value),
+        label: value >= 90 ? "自然" : value >= 78 ? "可用" : "需確認",
+        notes
+      };
+    }
+
+    function renderSuggestion(plan, target, isBest) {
+      const lines = plan.rows
+        .map((row) => {
+          const amount = rowAmounts(row);
+          return `
+            <tr>
+              <td>${escapeHtml(row.name)}</td>
+              <td class="num">${formatPlain(row.qty)}</td>
+              <td class="num">${format(row.unit)}</td>
+              <td class="num">${format(amount.untaxed)}</td>
+              <td class="num">${format(amount.taxed)}</td>
+            </tr>
+          `;
+        })
         .join("");
-      const diffText = plan.total === target ? "完全符合目標金額" : `與目標差 ${format(Math.abs(target - plan.total))}`;
+      const targetLabel = plan.targetType === "taxed" ? "含稅總額" : "未稅金額";
+      const diffText = plan.diff === 0 ? "完全符合目標金額" : `與目標差 ${format(plan.diff)}`;
       return `
         <div class="suggestion${isBest ? " best" : ""}">
-          <h3>${isBest ? "最佳建議" : "備選方案"}：${format(plan.total)}</h3>
-          <p>${diffText}</p>
-          <p>請只在這些品項確實對應實際交易內容時套用。</p>
-          <ul>${lines}</ul>
+          <div class="suggestion-topline">
+            <h3>${isBest ? "最佳編列" : "備選編列"}：${escapeHtml(plan.serviceLabel)}</h3>
+            <span>${escapeHtml(plan.score.label)}</span>
+          </div>
+          <p>${targetLabel} ${format(target)}，${diffText}。${escapeHtml(plan.profileLabel)}。</p>
+          <table class="suggestion-lines">
+            <thead>
+              <tr>
+                <th>品項</th>
+                <th>數量</th>
+                <th>單價</th>
+                <th>未稅</th>
+                <th>含稅</th>
+              </tr>
+            </thead>
+            <tbody>${lines}</tbody>
+          </table>
+          <div class="suggestion-total">
+            <span>銷售額 ${format(plan.subtotal)}</span>
+            <span>稅額 ${format(plan.tax)}</span>
+            <strong>含稅 ${format(plan.displayTotal)}</strong>
+          </div>
+          <p class="suggestion-note">${plan.score.notes.map(escapeHtml).join("｜")}</p>
         </div>
       `;
     }
@@ -689,12 +834,10 @@ const state = {
       }
       if (!state.bestPlan) return;
 
-      const rows = readRows();
-      state.bestPlan.plan.quantities.forEach((qty, itemIndex) => {
-        const sourceIndex = state.bestPlan.items[itemIndex].index;
-        const row = rows[sourceIndex];
-        if (row) row.tr.querySelector(".qty").value = qty;
-      });
+      if (state.bestPlan.mode === "draft") {
+        body.innerHTML = "";
+        state.bestPlan.plan.rows.forEach((row) => makeRow(row));
+      }
       updateTotals();
     }
 
@@ -737,7 +880,13 @@ const state = {
     document.getElementById("suggest").addEventListener("click", generateSuggestions);
     document.getElementById("applyBest").addEventListener("click", applyBestPlan);
     document.getElementById("taxRate").addEventListener("input", updateTotals);
+    document.getElementById("targetAmount").addEventListener("input", () => {
+      state.bestPlan = null;
+    });
     document.getElementById("targetType").addEventListener("change", generateSuggestions);
+    document.getElementById("serviceType").addEventListener("change", generateSuggestions);
+    document.getElementById("splitCount").addEventListener("change", generateSuggestions);
+    document.getElementById("allocationStyle").addEventListener("change", generateSuggestions);
     [
       "invoiceType",
       "invoiceDate",
