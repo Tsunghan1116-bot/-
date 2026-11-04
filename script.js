@@ -1,6 +1,7 @@
 const state = {
       bestPlan: null,
       draftPlans: [],
+      appliedSourceMemo: null,
       companyLookupTimer: null,
       companyRequestId: 0,
       suppressCompanyLookup: false
@@ -468,6 +469,38 @@ const state = {
 
     function generateSuggestions() {
       updateTotals();
+      if (window.hasParsedSource && window.hasParsedSource()) {
+        const rows = readRows().filter((row) => row.unit > 0 && row.qty > 0).map(({ tr, ...row }) => row);
+        if (!rows.length || rows.some((row) => row.priceType === "pending")) {
+          invalidateSuggestions();
+          document.getElementById("planStatus").textContent = "請先確認品項的含稅／未稅。";
+          return;
+        }
+        const memo = document.getElementById("invoiceMemo").value;
+        const context = window.getSourceContext ? window.getSourceContext() : "";
+        const sourceTotals = calculatePlanTotals(rows);
+        const rawDetails = rows.map((row) => `${row.name} ${row.qty} × ${formatPlain(row.unit)}`).join("；");
+        const candidates = [{ profileLabel: "依描述直列", rows, memo }];
+        if (new Set(rows.map((row) => `${row.priceType}:${row.taxType}`)).size === 1) {
+          candidates.push({ profileLabel: "合併列示（需核對品名）", rows: [{ ...rows[0], name: [...new Set(rows.map((row) => row.name))].join("、"), qty: 1, unit: rows.reduce((sum, row) => sum + row.qty * row.unit, 0) }], memo: [memo, `原明細：${rawDetails}`].filter(Boolean).join("；") });
+        }
+        candidates.push({ profileLabel: "分列並附交易說明", rows: rows.map((row) => ({ ...row })), memo: [memo, context || `原明細：${rawDetails}`].filter(Boolean).join("；") });
+        const results = candidates.map((candidate) => {
+          const totals = calculatePlanTotals(candidate.rows);
+          return { ...candidate, sourceBased: true, targetType: "untaxed", total: totals.subtotal, displayTotal: totals.total, subtotal: totals.subtotal, tax: totals.taxTotal, diff: Math.abs(totals.total - sourceTotals.total), score: { notes: ["沿用交易描述的品名與金額。", candidate.memo || "無額外備註。", ...(totals.total !== sourceTotals.total ? [`合併造成含稅四捨五入差額 ${totals.total - sourceTotals.total} 元，請核對。`] : [])] } };
+        });
+        state.draftPlans = results;
+        state.bestPlan = { mode: "draft", plan: results[0] };
+        document.getElementById("suggestions").innerHTML = results.map((plan, index) => renderSuggestion(plan, sourceTotals.subtotal, index === 0, index)).join("");
+        updatePlanSelection(0);
+        document.getElementById("planStatus").textContent = "依描述直列已帶入，可選其他呈現方式。";
+        return;
+      }
+      if (document.getElementById("transactionText")?.value.trim()) {
+        invalidateSuggestions();
+        document.getElementById("planStatus").textContent = "請先整理交易描述，再產生對應版本。";
+        return;
+      }
       const target = roundMoney(toNumber(document.getElementById("targetAmount").value));
       const targetType = document.getElementById("targetType").value;
       const serviceType = document.getElementById("serviceType").value;
@@ -622,7 +655,8 @@ const state = {
       return `
         <div class="suggestion${isBest ? " best" : ""}" data-plan-card="${index}">
           <div class="suggestion-topline">
-            <h3>版本 ${String.fromCharCode(65 + index)}：${escapeHtml(plan.profileLabel)}</h3>
+            <input type="radio" name="proposal" id="proposal-${index}" data-select-plan="${index}" aria-label="選擇版本 ${String.fromCharCode(65 + index)}">
+            <h3><label for="proposal-${index}">版本 ${String.fromCharCode(65 + index)}：${escapeHtml(plan.profileLabel)}</label></h3>
             <span>待核對</span>
           </div>
           <p class="suggestion-description">${plan.rows.map((row) => `${escapeHtml(row.name)} ${row.qty} × ${formatPlain(row.unit)}`).join("；")}</p>
@@ -688,7 +722,7 @@ const state = {
       };
       document.getElementById("printPreview").innerHTML = `
         <div class="invoice-stack">${renderInvoicePaper(invoiceData)}</div>
-        <div class="invoice-note">此票面為手開前填寫範例，只顯示一張三聯式統一發票樣式，方便把輸入資訊對照填入紙本發票。正式開立仍請以實際紙本格式與會計稅務規範為準。</div>
+        <div class="invoice-note">開票草稿，非正式發票。</div>
       `;
     }
 
@@ -716,34 +750,29 @@ const state = {
         }
         const amount = rowAmounts(row, data.taxRate);
         const pending = row.priceType === "pending";
-        const paperUnit = row.priceType === "taxed" && row.qty ? amount.untaxed / row.qty : row.unit;
+        const paperAmount = data.invoiceType === "duplicate" ? amount.taxed : amount.untaxed;
+        const paperUnit = row.qty ? paperAmount / row.qty : row.unit;
         return `
           <tr>
             <td class="item-name">${escapeHtml(row.name)}</td>
             <td class="num">${new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 6 }).format(row.qty)}</td>
             <td class="num">${pending ? "待確認" : new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 6 }).format(paperUnit)}</td>
-            <td class="num">${pending ? "待確認" : formatPlain(amount.untaxed)}</td>
+            <td class="num">${pending ? "待確認" : formatPlain(paperAmount)}</td>
             <td>${escapeHtml(data.memo)}</td>
           </tr>
         `;
       }).join("");
 
       return `
-        <div class="invoice-paper invoice-template" aria-label="三聯式發票草稿預覽">
+        <div class="invoice-paper invoice-template${data.invoiceType === "duplicate" ? " duplicate" : ""}" aria-label="${invoiceTypeLabel(data.invoiceType)}發票草稿預覽">
           <div class="invoice-title">
-            <div class="invoice-code" style="font-size:12px;white-space:nowrap;">${escapeHtml(invoicePrefix)}</div>
-            <h2>統一發票（三聯式）</h2>
-            <div></div>
+            <div class="invoice-top-left"><div class="invoice-period">中華民國 ${dateParts.periodYear} 年<br>${dateParts.periodStart}–${dateParts.periodEnd} 月</div><div class="invoice-code">${escapeHtml(invoicePrefix)}</div></div>
+            <h2>統一發票<small>（${invoiceTypeLabel(data.invoiceType)}）</small></h2>
+            <div class="invoice-date-text">發票日期：${dateParts.rocYear} 年 ${dateParts.month} 月 ${dateParts.day} 日</div>
           </div>
-          <div class="invoice-period">開票草稿｜${dateParts.periodYear}年　${dateParts.periodStart}、${dateParts.periodEnd}月份</div>
           ${data.activeRows.some((row) => row.priceType === "pending") ? '<div class="invoice-note">價格類型待確認，合計尚未完整</div>' : ""}
           <div class="invoice-head-row">
             <div>買受人：<span class="invoice-fill">${escapeHtml(buyerName)}</span></div>
-            <div class="invoice-date-text">
-              中華民國 <span class="invoice-fill">${dateParts.rocYear}</span> 年
-              <span class="invoice-fill">${dateParts.month}</span> 月
-              <span class="invoice-fill">${dateParts.day}</span> 日
-            </div>
           </div>
           <div class="invoice-head-row">
             <div class="invoice-tax-id-line">
@@ -787,19 +816,18 @@ const state = {
                   <td class="blue">${formatPlain(data.totals.total)}</td>
                 </tr>
               </table>
+              <div class="invoice-grand-line">
+                <span>總計新臺幣<br>（中文大寫）</span>
+                <strong>${toChineseMoney(data.totals.total)}</strong>
+              </div>
             </div>
             <div class="invoice-right-panel">
               <div class="invoice-note-box">備註<div class="invoice-memo-content">${escapeHtml(data.memo)}</div></div>
               <div class="invoice-stamp-reminder">營業人蓋用<br>統一發票專用章</div>
             </div>
           </div>
-          <div class="invoice-grand-line">
-            <span>總計新臺幣<br>（中文大寫）</span>
-            <strong>${toChineseMoney(data.totals.total)}</strong>
-            <span>元</span>
-          </div>
-          <div class="invoice-footer-tip">※應稅、零稅率、免稅之銷售額應分別開立統一發票，並應於各該欄打「✓」。</div>
-          ${data.activeRows.some((row) => row.priceType === "taxed") ? '<div class="invoice-note">單價欄為未稅折算值；折算有小數時，以各列金額與合計核對。</div>' : ""}
+          <div class="invoice-footer-tip"><span>※草稿供填寫核對使用。</span><span>第一聯・存根聯</span></div>
+          ${data.invoiceType === "triplicate" && data.activeRows.some((row) => row.priceType === "taxed") ? '<div class="invoice-note">單價欄為未稅折算值；折算有小數時，以各列金額與合計核對。</div>' : ""}
         </div>
       `;
     }
@@ -867,16 +895,23 @@ const state = {
       const plan = state.draftPlans[index];
       if (!plan) return;
       if (window.capturePlanUndo) window.capturePlanUndo();
+      if (typeof plan.memo === "string") document.getElementById("invoiceMemo").value = plan.memo;
+      state.appliedSourceMemo = plan.sourceBased ? plan.memo : null;
       body.innerHTML = "";
       plan.rows.forEach((row) => makeRow(row));
       updateTotals();
+      updatePlanSelection(index);
+      document.getElementById("planStatus").textContent = `已套用版本 ${String.fromCharCode(65 + index)}，品項明細與草稿預覽已更新。`;
+    }
+
+    function updatePlanSelection(index) {
       document.querySelectorAll("[data-apply-plan]").forEach((button) => {
         const selected = Number(button.dataset.applyPlan) === index;
         button.textContent = selected ? "已套用此版本" : "套用此版本";
         button.setAttribute("aria-pressed", String(selected));
         button.closest(".suggestion").classList.toggle("applied", selected);
       });
-      document.getElementById("planStatus").textContent = `已套用版本 ${index + 1}，品項明細與草稿預覽已更新。`;
+      document.querySelectorAll("[data-select-plan]").forEach((radio) => { radio.checked = Number(radio.dataset.selectPlan) === index; });
     }
 
     function invalidateSuggestions() {
@@ -985,6 +1020,8 @@ const state = {
     document.getElementById("suggestions").addEventListener("click", (event) => {
       const button = event.target.closest("[data-apply-plan]");
       if (button) applySuggestion(Number(button.dataset.applyPlan));
+      const radio = event.target.closest("[data-select-plan]");
+      if (radio) applySuggestion(Number(radio.dataset.selectPlan));
     });
     document.getElementById("taxRate").addEventListener("input", () => {
       updateTotals();

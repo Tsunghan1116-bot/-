@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>開票工作台｜發票草稿與金額編列</title>
   <link rel="stylesheet" href="style.css?v=20261104c">
-  <link rel="stylesheet" href="workspace.css?v=20261104d">
+  <link rel="stylesheet" href="workspace.css?v=20261104e">
 </head>
 <body>
   <header class="app-hero">
     <h1>開票工作台</h1>
-    <nav aria-label="主要功能"><a class="active" href="#transactionText" aria-current="page">開立草稿</a><a href="#draftFiles">草稿檔案</a></nav>
+    <nav aria-label="主要功能"><a class="active" href="#transactionText" aria-current="page">開立發票</a><a href="#draftFiles">草稿檔案</a><a href="#buyerFields">買受人資料</a><a href="#itemsBody">品項明細</a></nav>
   </header>
 
   <main>
@@ -28,11 +28,12 @@
       <div class="transaction-section">
         <label for="transactionText" class="section-label">交易描述</label>
         <textarea id="transactionText" rows="3" placeholder="抬頭：範例商行；統編：12345678；課程教學 4 堂，每堂 3000 元；教材製作 1 式，每式 2000 元；以上未稅。"></textarea>
+        <div class="description-help"><span>例：名稱：社團鐘點費；1200*4=4800；抬頭：範例國小</span><span id="descriptionCount">0 字</span></div>
         <button type="button" id="parseTransaction">整理開票內容</button>
-        <div class="price-confirmation">
+        <details class="price-options" open><summary>描述中的價格：<span id="sourcePriceSummary">待確認</span></summary><div class="price-confirmation">
           <label>描述中的價格<select id="sourcePriceType"><option value="pending">待確認</option><option value="untaxed">未稅</option><option value="taxed">含稅</option></select></label>
           <button type="button" class="secondary" id="confirmSourcePrice">確認並套用價格類型</button>
-        </div>
+        </div></details>
         <p id="sourceStatus" role="status" aria-live="polite"></p>
         <details class="source-comparison"><summary>原文與資料核對</summary><div id="sourceReview"></div></details>
       </div>
@@ -65,17 +66,16 @@
       </div>
 
       <div class="settings">
-        <label>
-          發票類型
-          <select id="invoiceType">
+          <select id="invoiceType" aria-label="發票類型" hidden>
             <option value="triplicate">三聯式，買受人為營業人</option>
             <option value="duplicate">二聯式，買受人為非營業人</option>
           </select>
-        </label>
         <label>
           開立日期
           <input type="date" id="invoiceDate">
         </label>
+        <label>發票期別<select id="invoicePeriod"></select></label>
+        <fieldset class="invoice-type-selector"><legend>發票聯式</legend><label><input type="radio" name="invoiceKind" value="triplicate" checked>三聯式（公司）</label><label><input type="radio" name="invoiceKind" value="duplicate">二聯式（個人）</label></fieldset>
         <label>
           發票字軌號碼
           <input type="text" id="invoiceNo" maxlength="10" placeholder="2 碼英文＋8 碼數字，例如 AB12345678">
@@ -114,7 +114,7 @@
 
       <div class="subsection-title items-title">
         <span>品項明細 <small>金額為未稅</small></span>
-        <div class="toolbar"><button type="button" class="secondary" id="addRow"><img class="button-icon" src="assets/icons/plus.svg" alt="">新增品項</button><button type="button" class="secondary" id="itemDetails" aria-pressed="false">稅別設定</button></div>
+        <div class="toolbar"><button type="button" class="secondary" id="addRow"><img class="button-icon" src="assets/icons/plus.svg" alt="">新增品項</button><button type="button" class="secondary" id="clearRows">清除明細</button><button type="button" class="secondary" id="itemDetails" aria-pressed="false">稅別設定</button></div>
       </div>
 
       <div class="table-wrap">
@@ -153,6 +153,7 @@
         <div>
           <h2>編列版本</h2>
           <p class="hint">選擇版本後，套用至品項明細。</p>
+          <button type="button" class="secondary" id="refreshVersions">更新版本</button>
         </div>
       </div>
       <div class="side-body">
@@ -215,7 +216,8 @@
   </main>
 
   <script src="assets/vendor/html-to-image/html-to-image.js?v=1.11.13"></script>
-  <script src="script.js?v=20261104d"></script>
-  <script src="draft-workflow.js?v=20261104d"></script>
+  <script src="script.js?v=20261104e"></script>
+  <script src="transaction-parser.js?v=20261104e"></script>
+  <script src="draft-workflow.js?v=20261104e"></script>
 </body>
 </html>

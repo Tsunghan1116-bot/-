@@ -14,6 +14,30 @@
   workspace.insertBefore(editorBottom, workspace.querySelector(".memo-field"));
   editorBottom.append(workspace.querySelector(".memo-field"), workspace.querySelector(".summary"));
   document.querySelector(".side-body").appendChild(document.querySelector(".notice"));
+  const sourceOptions = document.createElement("div");
+  sourceOptions.className = "source-options";
+  const transaction = document.querySelector(".transaction-section");
+  transaction.insertBefore(sourceOptions, transaction.querySelector(".price-options"));
+  sourceOptions.append(transaction.querySelector(".price-options"), transaction.querySelector(".source-comparison"), document.getElementById("sourceStatus"));
+  const numberDetails = document.createElement("details");
+  numberDetails.className = "invoice-number-settings";
+  const numberSummary = document.createElement("summary");
+  numberSummary.textContent = "發票字軌號碼";
+  numberDetails.append(numberSummary, document.getElementById("invoiceNo").closest("label"));
+  workspace.insertBefore(numberDetails, document.getElementById("draftFiles"));
+  document.querySelectorAll('.app-hero a[href^="#"]').forEach((link) => link.addEventListener("click", () => document.getElementById("showEditor").click()));
+  document.querySelectorAll('[name="invoiceKind"]').forEach((radio) => radio.addEventListener("change", () => {
+    document.getElementById("invoiceType").value = radio.value;
+    updateTotals();
+  }));
+  document.getElementById("invoicePeriod").addEventListener("change", (event) => {
+    const [year, startMonth] = event.target.value.split("-").map(Number);
+    const current = getRocDateParts(document.getElementById("invoiceDate").value);
+    const month = current.month === startMonth + 1 ? current.month : startMonth;
+    const day = Math.min(current.day, new Date(year, month, 0).getDate());
+    document.getElementById("invoiceDate").value = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    updateTotals();
+  });
   document.querySelector('a[href="#draftFiles"]').addEventListener("click", () => {
     document.getElementById("draftFiles").open = true;
     document.body.classList.remove("preview-mode");
@@ -26,6 +50,7 @@
   const el = (id) => document.getElementById(id);
   let undoRows = null;
   let sourceFacts = [];
+  let lastParsedSource = "";
   let baseline;
   let lastExport = "";
 
@@ -41,6 +66,15 @@
     const active = rowsSnapshot().filter((row) => row.unit > 0 && row.qty > 0);
     document.querySelector(".transaction-section").classList.toggle("confirmed", active.length > 0 && active.every((row) => row.priceType !== "pending"));
     renderReview();
+    el("sourcePriceSummary").textContent = { pending: "待確認", untaxed: "未稅", taxed: "含稅" }[el("sourcePriceType").value];
+    const parts = getRocDateParts(el("invoiceDate").value);
+    const year = parts.periodYear + 1911;
+    if (el("invoicePeriod").dataset.year !== String(year)) {
+      el("invoicePeriod").replaceChildren(...[1, 3, 5, 7, 9, 11].map((month) => new Option(`${parts.periodYear} 年 ${month}–${month + 1} 月`, `${year}-${month}`)));
+      el("invoicePeriod").dataset.year = String(year);
+    }
+    el("invoicePeriod").value = `${year}-${parts.periodStart}`;
+    document.querySelectorAll('[name="invoiceKind"]').forEach((radio) => { radio.checked = radio.value === el("invoiceType").value; });
   }
   function replaceRows(rows) {
     body.replaceChildren();
@@ -57,73 +91,97 @@
       const term = document.createElement("dt");
       term.textContent = fact.label;
       const detail = document.createElement("dd");
-      const current = fact.field ? el(fact.field).value : rows.map((row) => `${row.name} ${row.qty} × ${row.unit}`).join("；");
+      const current = fact.field ? el(fact.field).value : ["交易背景", "解析提醒"].includes(fact.label) ? fact.value : rows.map((row) => `${row.name} ${row.qty} × ${row.unit}`).join("；");
       detail.textContent = `原文擷取：${fact.value}｜目前：${current || "待填寫"}`;
       list.append(term, detail);
     }
     box.append(list);
   }
-  function moneyNumber(value) { return Number(value.replaceAll(",", "")); }
-  function parseDescription() {
+  function parseDescription(options = {}) {
     const raw = el("transactionText").value.trim();
-    if (!raw) { el("sourceStatus").textContent = "請先輸入交易描述。"; return; }
-    const name = raw.match(/(?:抬頭|買受人|公司名稱)\s*[:：]\s*([^，,；;\n]+)/);
-    const taxId = raw.match(/統(?:一編)?編?(?:號)?\s*[:：]?\s*(\d{8})(?!\d)/);
-    const hasUntaxed = /未稅|不含稅/.test(raw);
-    const hasTaxed = /(?<!不)含稅/.test(raw.replaceAll("未稅", ""));
-    const priceType = hasUntaxed !== hasTaxed ? hasUntaxed ? "untaxed" : "taxed" : "pending";
-    const rows = [];
-    const unmatched = [];
-    for (const original of raw.split(/[；;\n。]/).map((line) => line.trim()).filter(Boolean)) {
-      const line = original.replace(/(?:以上|均為|全部)?(?:未稅|不含稅|含稅)[。\s]*$/, "").trim();
-      if (!line || /^(?:抬頭|買受人|公司名稱|統編|統一編號)\s*[:：]/.test(line)) continue;
-      const match = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*(?:堂|次|式|件|個|小時|份|組)\s*[,，]?\s*每(?:堂|次|式|件|個|小時|份|組)\s*([\d,]+(?:\.\d+)?)\s*元?$/)
-        || line.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*[×x*]\s*([\d,]+(?:\.\d+)?)\s*元?$/);
-      if (match && Number(match[2]) > 0 && moneyNumber(match[3]) >= 0) {
-        rows.push({ name: match[1].trim(), qty: Number(match[2]), unit: moneyNumber(match[3]), priceType, taxType: "taxable", adjustable: true });
-      } else if (!/^(?:以上|均為|全部)?\s*$/.test(line)) unmatched.push(original);
+    if (!raw) { el("sourceStatus").textContent = "請先輸入交易描述。"; return false; }
+    const explicitPrice = /未稅|不含稅|含稅|稅內含|稅外加/.test(raw);
+    const result = parseTransactionText(raw, options.priceOverride || (explicitPrice ? "pending" : el("sourcePriceType").value));
+    if (result.blocking || !result.rows.length) {
+      el("sourceStatus").textContent = result.issues.join(" ");
+      el("sourceStatus").classList.add("needs-review");
+      return false;
     }
-    if (!name && !taxId && !rows.length) {
-      el("sourceStatus").textContent = "尚無可確定的欄位。請用「抬頭：名稱；統編：8碼；品項 4 堂，每堂 3000 元」或手動填寫。原文已保留。";
-      return;
-    }
-    if (rows.length && rowsSnapshot().some((row) => row.name || row.unit > 0) && !window.confirm("整理結果會替換目前品項，是否繼續？可用「復原上次套用」回復品項。")) return;
     window.capturePlanUndo();
+    if (raw !== lastParsedSource && state.appliedSourceMemo !== null && el("invoiceMemo").value === state.appliedSourceMemo) el("invoiceMemo").value = "";
+    state.appliedSourceMemo = null;
     sourceFacts = [];
-    if (name) { el("buyerName").value = name[1].trim(); sourceFacts.push({ field: "buyerName", label: "買受人", value: name[1].trim() }); }
-    if (taxId) { el("buyerTaxId").value = taxId[1]; sourceFacts.push({ field: "buyerTaxId", label: "統一編號", value: taxId[1] }); }
-    el("sourcePriceType").value = priceType;
-    if (rows.length) {
-      replaceRows(rows);
-      sourceFacts.push({ label: "品項明細", value: rows.map((row) => `${row.name} ${row.qty} × ${row.unit}`).join("；") });
+    for (const [field, value] of Object.entries(result.fields)) {
+      el(field).value = value;
+      sourceFacts.push({ field, label: { buyerName: "買受人", buyerTaxId: "統一編號", buyerAddress: "地址", invoiceMemo: "備註" }[field], value });
     }
+    sourceFacts.push({ label: "品項明細", value: result.rows.map((row) => `${row.name} ${row.qty} × ${row.unit}`).join("；") });
+    if (result.contexts.length) sourceFacts.push({ label: "交易背景", value: result.contexts.join("；") });
+    if (result.issues.length) sourceFacts.push({ label: "解析提醒", value: result.issues.join(" ") });
+    el("sourcePriceType").value = result.priceType;
+    document.querySelector(".price-options").open = result.priceType === "pending";
+    lastParsedSource = raw;
+    replaceRows(result.rows);
     invalidateSuggestions();
     updateTotals();
-    el("sourceStatus").textContent = `已辨識 ${rows.length} 筆品項；${priceType === "pending" ? "含稅／未稅待確認。" : "請核對價格類型與課稅別。"}${unmatched.length ? `尚未套用的內容：${unmatched.join("；")}` : ""}`;
+    el("sourceStatus").textContent = `已帶入 ${result.rows.length} 筆${result.priceType === "pending" ? "，請確認含稅／未稅" : "，金額已更新"}${result.issues.length ? `；${result.issues.length} 項待核對` : ""}。`;
+    el("sourceStatus").classList.toggle("needs-review", result.priceType === "pending" || result.issues.length > 0);
+    if (result.priceType !== "pending") generateSuggestions();
     refresh();
+    return true;
   }
+  window.hasParsedSource = () => lastParsedSource !== "" && lastParsedSource === el("transactionText").value.trim();
+  window.getSourceContext = () => sourceFacts.filter((fact) => fact.label === "交易背景").map((fact) => fact.value).join("；");
   window.capturePlanUndo = () => {
-    undoRows = rowsSnapshot();
+    undoRows = { rows: rowsSnapshot(), memo: el("invoiceMemo").value };
     el("undoPlan").disabled = false;
   };
   el("undoPlan").addEventListener("click", () => {
     if (!undoRows) return;
     const previous = undoRows;
     undoRows = null;
-    replaceRows(previous);
+    el("invoiceMemo").value = previous.memo;
+    replaceRows(previous.rows);
     el("undoPlan").disabled = true;
     invalidateSuggestions();
     el("planStatus").textContent = "已復原套用前的品項明細。";
+    if (window.hasParsedSource()) generateSuggestions();
     refresh();
   });
   el("parseTransaction").addEventListener("click", parseDescription);
+  el("refreshVersions").addEventListener("click", generateSuggestions);
+  el("clearRows").addEventListener("click", () => {
+    window.capturePlanUndo();
+    replaceRows([{}]);
+    lastParsedSource = "";
+    invalidateSuggestions();
+    el("sourceStatus").textContent = "已清除品項，交易描述仍保留；可復原或重新整理。";
+  });
   el("confirmSourcePrice").addEventListener("click", () => {
     const type = el("sourcePriceType").value;
     if (type === "pending") { el("sourceStatus").textContent = "請先選擇含稅或未稅。"; return; }
+    if (el("transactionText").value.trim() && !window.hasParsedSource()) {
+      parseDescription({ priceOverride: type });
+      return;
+    }
+    if (!rowsSnapshot().some((row) => row.name && row.unit > 0)) {
+      el("sourceStatus").textContent = "目前沒有可計算的品項，請先輸入交易描述或品項與單價。";
+      return;
+    }
     window.capturePlanUndo();
     body.querySelectorAll(".priceType").forEach((input) => { input.value = type; });
     updateTotals();
     el("sourceStatus").textContent = `目前全部品項已確認為${type === "taxed" ? "含稅" : "未稅"}單價。`;
+    el("sourceStatus").classList.remove("needs-review");
+    if (window.hasParsedSource()) generateSuggestions();
+  });
+  el("transactionText").addEventListener("input", () => {
+    if (lastParsedSource && !window.hasParsedSource()) {
+      invalidateSuggestions();
+      el("sourceStatus").textContent = "交易描述已變更，請重新整理開票內容。";
+      el("sourceStatus").classList.add("needs-review");
+    }
+    el("descriptionCount").textContent = `${el("transactionText").value.length} 字`;
   });
   el("saveDraft").addEventListener("click", async () => {
     const data = snapshot();
@@ -171,7 +229,7 @@
       if (!row || typeof row.name !== "string" || row.name.length > 2000 || !["pending", "taxed", "untaxed"].includes(row.priceType) || !["taxable", "zero", "exempt"].includes(row.taxType) || !Number.isFinite(row.qty) || !Number.isFinite(row.unit) || row.qty < 0 || row.unit < 0 || row.qty * row.unit > Number.MAX_SAFE_INTEGER) throw new Error("品項格式不符");
       return { name: row.name, qty: row.qty, unit: row.unit, priceType: row.priceType, taxType: row.taxType, adjustable: row.adjustable !== false };
     });
-    const facts = Array.isArray(data.sourceFacts) ? data.sourceFacts.filter((fact) => fact && typeof fact.label === "string" && typeof fact.value === "string" && (!fact.field || ["buyerName", "buyerTaxId"].includes(fact.field))).map((fact) => ({ label: fact.label.slice(0, 100), value: fact.value.slice(0, 20000), ...(fact.field ? { field: fact.field } : {}) })) : [];
+    const facts = Array.isArray(data.sourceFacts) ? data.sourceFacts.filter((fact) => fact && typeof fact.label === "string" && typeof fact.value === "string" && (!fact.field || ["buyerName", "buyerTaxId", "buyerAddress", "invoiceMemo"].includes(fact.field))).map((fact) => ({ label: fact.label.slice(0, 100), value: fact.value.slice(0, 20000), ...(fact.field ? { field: fact.field } : {}) })) : [];
     return { fields, rows, facts };
   }
   el("loadDraft").addEventListener("click", () => el("draftFile").click());
@@ -186,6 +244,7 @@
       clearTimeout(state.companyLookupTimer);
       for (const id of ids) el(id).value = data.fields[id];
       sourceFacts = data.facts;
+      lastParsedSource = "";
       replaceRows(data.rows);
       undoRows = null;
       el("undoPlan").disabled = true;
@@ -205,6 +264,7 @@
     el("invoiceDate").value = todayValue();
     el("sourcePriceType").value = "pending";
     sourceFacts = [];
+    lastParsedSource = "";
     replaceRows([{}]);
     undoRows = null;
     el("undoPlan").disabled = true;
@@ -225,7 +285,16 @@
     });
   }
   window.draftWorkflowChanged = refresh;
-  document.addEventListener("input", refresh);
+  refresh();
+  document.addEventListener("input", (event) => {
+    if (event.target.id !== "invoicePeriod" && event.target.name !== "invoiceKind") refresh();
+  });
+  document.addEventListener("input", (event) => {
+    if (event.target.closest("#itemsBody") || event.target.id === "invoiceMemo") {
+      invalidateSuggestions();
+      el("planStatus").textContent = "明細已調整，可按「更新版本」重新編列。";
+    }
+  });
   document.addEventListener("change", refresh);
   window.addEventListener("beforeunload", (event) => {
     if (dirty()) { event.preventDefault(); event.returnValue = ""; }
