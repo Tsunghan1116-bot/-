@@ -841,6 +841,59 @@ const state = {
       updateTotals();
     }
 
+    async function downloadInvoiceImage() {
+      const button = document.getElementById("downloadInvoice");
+      const status = document.getElementById("exportStatus");
+      if (button.disabled) return;
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      status.textContent = "正在產生圖片…";
+      let frame;
+      try {
+        if (!window.htmlToImage) throw new Error("圖片元件未載入，請重新整理頁面後重試。");
+        updateTotals();
+        // Use a separate desktop viewport so mobile layout cannot alter the exported paper.
+        frame = document.createElement("iframe");
+        frame.title = "發票圖片輸出";
+        frame.setAttribute("aria-hidden", "true");
+        frame.style.cssText = "position:fixed;left:-12000px;top:0;width:1000px;height:1200px;border:0;pointer-events:none;";
+        document.body.appendChild(frame);
+        const doc = frame.contentDocument;
+        const style = doc.createElement("style");
+        style.textContent = [...document.styleSheets].map((sheet) =>
+          [...sheet.cssRules].map((rule) => rule.cssText).join("\n")
+        ).join("\n") + "\nbody{margin:0;background:white;} .invoice-paper{box-shadow:none;}";
+        doc.head.appendChild(style);
+        const paper = document.querySelector("#printPreview .invoice-paper").cloneNode(true);
+        const label = doc.createElement("div");
+        label.textContent = "開票草稿";
+        label.style.cssText = "font:12px sans-serif;text-align:right;color:#647184;margin-bottom:8px;";
+        paper.prepend(label);
+        doc.body.appendChild(paper);
+        await doc.fonts.ready;
+        const dataUrl = await window.htmlToImage.toPng(paper, {
+          pixelRatio: 2,
+          backgroundColor: "#ffffff",
+          style: { margin: "0" },
+          width: paper.offsetWidth,
+          height: paper.offsetHeight
+        });
+        const link = document.createElement("a");
+        link.download = `invoice-draft-${document.getElementById("invoiceDate").value || todayValue()}.png`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        status.textContent = "圖片已產生，請查看瀏覽器下載項目。";
+      } catch (error) {
+        status.textContent = `下載失敗：${error.message || "請稍後再試。"}`;
+      } finally {
+        if (frame) frame.remove();
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+      }
+    }
+
     async function copySummary() {
       updateTotals();
       const taxRate = getTaxRate();
@@ -872,6 +925,7 @@ const state = {
 
     document.getElementById("addRow").addEventListener("click", () => makeRow());
     document.getElementById("copySummary").addEventListener("click", copySummary);
+    document.getElementById("downloadInvoice").addEventListener("click", downloadInvoiceImage);
     document.getElementById("lookupByTaxId").addEventListener("click", lookupCompanyByTaxId);
     document.getElementById("printInvoice").addEventListener("click", () => {
       updateTotals();
