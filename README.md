@@ -2,7 +2,7 @@
 
 協助手開發票的線上工具：將交易描述整理成買受人資料、品項明細與金額試算，再以發票草稿呈現，方便核對後填寫紙本發票。
 
-**[立即使用開票工作台](https://tsunghan1116-bot.github.io/-/)**
+**[立即使用開票工作台](https://tsunghan1116-bot.github.io/invoice-helper/)**
 
 ## 功能特色
 
