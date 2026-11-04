@@ -32,6 +32,7 @@
           <button type="button" id="addRow">新增品項</button>
           <button type="button" class="secondary" id="copySummary">複製摘要</button>
           <button type="button" class="secondary" id="printInvoice">列印草稿</button>
+          <button type="button" class="secondary" id="downloadInvoice" title="下載發票草稿 PNG">下載 PNG</button>
         </div>
       </div>
 
@@ -139,6 +140,7 @@
       </div>
 
       <div class="print-preview" id="printPreview"></div>
+      <p id="exportStatus" role="status" aria-live="polite" style="margin: 0 22px 20px;"></p>
     </section>
 
     <aside class="strategy-panel">
@@ -205,6 +207,7 @@
     </aside>
   </main>
 
-  <script src="script.js?v=20260715c"></script>
+  <script src="assets/vendor/html-to-image/html-to-image.js?v=1.11.13"></script>
+  <script src="script.js?v=20261104a"></script>
 </body>
 </html>
