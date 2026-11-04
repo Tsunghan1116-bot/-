@@ -117,6 +117,30 @@ aside {
 .workspace-panel {
   overflow: hidden;
 }
+.mobile-view-controls { display: none; }
+.invoice-template .invoice-lines td { overflow-wrap: anywhere; }
+.invoice-head-row > div { min-width: 0; overflow-wrap: anywhere; }
+.invoice-head-row .invoice-fill { min-width: 24px; }
+.invoice-template .invoice-title { grid-template-columns: 120px 1fr 120px; }
+.invoice-template .invoice-lines th { letter-spacing: 0; }
+
+.draft-tools,
+.transaction-section {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.draft-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.draft-tools span { color: var(--muted); font-size: 13px; }
+.transaction-section textarea {
+  width: 100%; margin: 8px 0 12px; padding: 12px;
+  border: 1px solid var(--line-strong); border-radius: 6px;
+  font: inherit; line-height: 1.6; resize: vertical;
+}
+.transaction-section p { font-size: 13px; line-height: 1.6; color: var(--muted); }
+#sourceReview dl { margin: 12px 0; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+#sourceReview dt { font-weight: 700; }
+#sourceReview dd { margin: 0 0 8px; color: var(--muted); }
+button:disabled { cursor: default; opacity: .6; box-shadow: none; }
 
 .strategy-panel {
   position: sticky;
@@ -495,6 +519,22 @@ td select {
 .suggestion.best {
   border-color: rgba(15, 118, 110, 0.35);
   background: #f0faf8;
+}
+
+.suggestion.applied {
+  border-color: var(--primary);
+  box-shadow: inset 3px 0 var(--primary);
+}
+
+.suggestion button[data-apply-plan] {
+  width: 100%;
+  margin-top: 10px;
+}
+
+#planStatus {
+  color: var(--primary-dark);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .suggestion h3 {
@@ -1228,6 +1268,21 @@ td select {
 }
 
 @media (max-width: 620px) {
+  .mobile-view-controls { display: flex; gap: 10px; }
+  .mobile-view-controls button { flex: 1; }
+  .preview-mode .workspace-panel > *:not(.print-preview):not(#exportStatus):not(.section-head) { display: none !important; }
+  .preview-mode .section-head > div:first-child,
+  .preview-mode #addRow,
+  .preview-mode #copySummary { display: none; }
+  .preview-mode .strategy-panel { display: none; }
+  .preview-mode .print-preview { margin: 12px; }
+  .print-preview { overflow-x: auto; }
+  .invoice-paper.invoice-template { min-width: 760px; }
+  .invoice-template .invoice-title { grid-template-columns: 120px 1fr 120px; }
+  .invoice-template .invoice-head-row { grid-template-columns: 1.2fr 1.1fr; }
+  .invoice-template .invoice-main-grid { grid-template-columns: minmax(0, 2.7fr) minmax(145px, .62fr); }
+  .invoice-template .invoice-address-line,
+  .invoice-template .invoice-grand-line { grid-template-columns: auto 1fr auto; }
   .app-hero {
     padding: 24px 16px 18px;
   }
@@ -1270,9 +1325,11 @@ td select {
     text-align: left;
     white-space: normal;
   }
+  .invoice-template .invoice-title { grid-template-columns: 120px 1fr 120px; }
 }
 
 @media print {
+  .draft-tools, .transaction-section, .mobile-view-controls, #exportStatus, #saveStatus { display: none !important; }
   body {
     background: #fff;
   }
