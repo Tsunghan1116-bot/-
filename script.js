@@ -1,6 +1,8 @@
 const state = {
       bestPlan: null,
+      draftPlans: [],
       companyLookupTimer: null,
+      companyRequestId: 0,
       suppressCompanyLookup: false
     };
 
@@ -120,12 +122,13 @@ const state = {
     function makeRow(item = {}) {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td><input class="name" type="text" placeholder="例如：顧問服務" value="${escapeHtml(item.name || "")}"></td>
-        <td><input class="qty num" type="number" min="0" step="1" value="${item.qty ?? 1}"></td>
-        <td><input class="unit num" type="number" min="0" step="1" value="${item.unit ?? 0}"></td>
+        <td><input class="name" aria-label="品項名稱" type="text" placeholder="例如：顧問服務" value="${escapeHtml(item.name || "")}"></td>
+        <td><input class="qty num" aria-label="數量" type="number" min="0" step="1" value="${item.qty ?? 1}"></td>
+        <td><input class="unit num" aria-label="單價" type="number" min="0" step="1" value="${item.unit ?? 0}"></td>
         <td>
           <select class="priceType">
-            <option value="untaxed"${(item.priceType || "untaxed") === "untaxed" ? " selected" : ""}>未稅</option>
+            <option value="pending"${(!item.priceType || item.priceType === "pending") ? " selected" : ""}>待確認</option>
+            <option value="untaxed"${item.priceType === "untaxed" ? " selected" : ""}>未稅</option>
             <option value="taxed"${item.priceType === "taxed" ? " selected" : ""}>含稅</option>
           </select>
         </td>
@@ -182,6 +185,7 @@ const state = {
     }
 
     function rowAmounts(row, taxRate = getTaxRate()) {
+      if (row.priceType === "pending") return { untaxed: 0, taxed: 0, tax: 0, unitForTargetTaxed: 0, unitForTargetUntaxed: 0 };
       const effectiveTaxRate = row.taxType === "taxable" ? taxRate : 0;
       const taxedUnit = row.priceType === "taxed" ? row.unit : row.unit * (1 + effectiveTaxRate);
       const untaxedUnit = row.priceType === "taxed" && effectiveTaxRate > 0 ? row.unit / (1 + effectiveTaxRate) : row.unit;
@@ -223,6 +227,7 @@ const state = {
       updateBuyerMode();
       updateValidation(rows, { subtotal, taxTotal, total, activeCount });
       updatePrintPreview(rows, { subtotal, taxTotal, total });
+      if (window.draftWorkflowChanged) window.draftWorkflowChanged();
     }
 
     function updateBuyerMode() {
@@ -245,6 +250,7 @@ const state = {
 
     function scheduleCompanyLookup(mode) {
       if (state.suppressCompanyLookup) return;
+      state.companyRequestId += 1;
       clearTimeout(state.companyLookupTimer);
       state.companyLookupTimer = setTimeout(() => {
         if (mode === "taxId") lookupCompanyByTaxId();
@@ -253,6 +259,7 @@ const state = {
     }
 
     async function lookupCompanyByTaxId() {
+      const requestId = ++state.companyRequestId;
       const taxId = document.getElementById("buyerTaxId").value.trim();
       const resultsBox = document.getElementById("companyLookupResults");
       if (!/^\d{8}$/.test(taxId)) {
@@ -264,6 +271,7 @@ const state = {
         const response = await fetch(`${COMPANY_API_BASE}/show/${encodeURIComponent(taxId)}`);
         if (!response.ok) throw new Error("lookup failed");
         const payload = await response.json();
+        if (requestId !== state.companyRequestId || document.getElementById("buyerTaxId").value.trim() !== taxId) return;
         const company = normalizeCompanyRecord(payload.data, taxId);
         if (!company.name) {
           setLookupMessage("查無對應公司資料，請確認統編或手動填寫。", true);
@@ -272,12 +280,14 @@ const state = {
         applyCompanyResult(company);
         renderCompanyResults([company], "已依統編帶入公司資料。");
       } catch {
+        if (requestId !== state.companyRequestId) return;
         resultsBox.classList.add("active");
-        resultsBox.innerHTML = `<div class="check-item error">公司資料查詢失敗。可能是網路、公開資料來源或瀏覽器阻擋造成，仍可手動填寫。</div>`;
+        resultsBox.innerHTML = `<div class="check-item error">公司資料查詢失敗，仍可手動填寫。</div><button type="button" class="secondary" data-retry-lookup="taxId">重新查詢統編</button>`;
       }
     }
 
     async function lookupCompanyByName() {
+      const requestId = ++state.companyRequestId;
       const keyword = document.getElementById("buyerName").value.trim();
       if (keyword.length < 2) {
         hideCompanyResults();
@@ -288,6 +298,7 @@ const state = {
         const response = await fetch(`${COMPANY_API_BASE}/search?q=${encodeURIComponent(keyword)}`);
         if (!response.ok) throw new Error("lookup failed");
         const payload = await response.json();
+        if (requestId !== state.companyRequestId || document.getElementById("buyerName").value.trim() !== keyword) return;
         const companies = (payload.data || [])
           .map((record) => normalizeCompanyRecord(record, record["統一編號"]))
           .filter((company) => company.name && company.taxId)
@@ -298,9 +309,10 @@ const state = {
         }
         renderCompanyResults(companies, `找到 ${companies.length} 筆候選公司，請選擇要套用的資料。`);
       } catch {
+        if (requestId !== state.companyRequestId) return;
         const resultsBox = document.getElementById("companyLookupResults");
         resultsBox.classList.add("active");
-        resultsBox.innerHTML = `<div class="check-item error">公司名稱查詢失敗。可能是網路、公開資料來源或瀏覽器阻擋造成，仍可手動填寫。</div>`;
+        resultsBox.innerHTML = `<div class="check-item error">公司名稱查詢失敗，仍可手動填寫。</div><button type="button" class="secondary" data-retry-lookup="name">重新查詢名稱</button>`;
       }
     }
 
@@ -367,6 +379,13 @@ const state = {
       const activeRows = rows.filter((row) => row.unit > 0 && row.qty > 0);
       const taxTypes = new Set(activeRows.map((row) => row.taxType));
       const messages = [];
+
+      if (activeRows.some((row) => row.priceType === "pending")) {
+        messages.push({ type: "error", text: "有品項尚未確認含稅／未稅，該筆暫不計入合計。" });
+      }
+      const invoiceNo = document.getElementById("invoiceNo").value.trim();
+      if (invoiceNo && !/^[A-Za-z]{2}\d{8}$/.test(invoiceNo)) messages.push({ type: "error", text: "發票號碼應為 2 碼英文字軌與 8 碼數字。" });
+      if (activeRows.length > 5) messages.push({ type: "warn", text: "超過紙本常見的 5 列；預覽將展開顯示全部資料，請確認如何分張或合併。" });
 
       if (activeRows.length) {
         messages.push({ type: "ok", text: `已有 ${activeRows.length} 個有效品項，含稅總額 ${format(totals.total)}。` });
@@ -456,6 +475,9 @@ const state = {
       const allocationStyle = document.getElementById("allocationStyle").value;
       const box = document.getElementById("suggestions");
       state.bestPlan = null;
+      state.draftPlans = [];
+
+      document.getElementById("planStatus").textContent = "";
 
       if (!target || target <= 0) {
         box.innerHTML = `<p class="empty">請先輸入目標金額。</p>`;
@@ -476,7 +498,8 @@ const state = {
       }
 
       state.bestPlan = { mode: "draft", plan: results[0] };
-      box.innerHTML = results.map((plan, index) => renderSuggestion(plan, target, index === 0)).join("");
+      state.draftPlans = results;
+      box.innerHTML = results.map((plan, index) => renderSuggestion(plan, target, index === 0, index)).join("");
     }
 
     function buildDraftPlans({ target, targetType, serviceType, splitCount, allocationStyle }) {
@@ -579,7 +602,7 @@ const state = {
       };
     }
 
-    function renderSuggestion(plan, target, isBest) {
+    function renderSuggestion(plan, target, isBest, index) {
       const lines = plan.rows
         .map((row) => {
           const amount = rowAmounts(row);
@@ -597,13 +620,13 @@ const state = {
       const targetLabel = plan.targetType === "taxed" ? "含稅總額" : "未稅金額";
       const diffText = plan.diff === 0 ? "完全符合目標金額" : `與目標差 ${format(plan.diff)}`;
       return `
-        <div class="suggestion${isBest ? " best" : ""}">
+        <div class="suggestion${isBest ? " best" : ""}" data-plan-card="${index}">
           <div class="suggestion-topline">
-            <h3>${isBest ? "最佳編列" : "備選編列"}：${escapeHtml(plan.serviceLabel)}</h3>
-            <span>${escapeHtml(plan.score.label)}</span>
+            <h3>版本 ${String.fromCharCode(65 + index)}：${escapeHtml(plan.profileLabel)}</h3>
+            <span>待核對</span>
           </div>
-          <p>${targetLabel} ${format(target)}，${diffText}。${escapeHtml(plan.profileLabel)}。</p>
-          <table class="suggestion-lines">
+          <p class="suggestion-description">${plan.rows.map((row) => `${escapeHtml(row.name)} ${row.qty} × ${formatPlain(row.unit)}`).join("；")}</p>
+          <details class="suggestion-details"><summary>查看明細</summary><p>${targetLabel} ${format(target)}，${diffText}。</p><table class="suggestion-lines">
             <thead>
               <tr>
                 <th>品項</th>
@@ -614,13 +637,13 @@ const state = {
               </tr>
             </thead>
             <tbody>${lines}</tbody>
-          </table>
+          </table><p class="suggestion-note">${plan.score.notes.map(escapeHtml).join("｜")}</p></details>
           <div class="suggestion-total">
             <span>銷售額 ${format(plan.subtotal)}</span>
             <span>稅額 ${format(plan.tax)}</span>
             <strong>含稅 ${format(plan.displayTotal)}</strong>
           </div>
-          <p class="suggestion-note">${plan.score.notes.map(escapeHtml).join("｜")}</p>
+          <button type="button" data-apply-plan="${index}" aria-label="套用版本 ${index + 1}：${escapeHtml(plan.profileLabel)}">套用此版本</button>
         </div>
       `;
     }
@@ -670,12 +693,12 @@ const state = {
     }
 
     function renderInvoicePaper(data) {
-      const rows = data.activeRows.slice(0, 6);
-      while (rows.length < 6) rows.push(null);
+      const rows = data.activeRows.slice();
+      while (rows.length < 5) rows.push(null);
       const taxTypes = new Set(data.activeRows.map((row) => row.taxType));
-      const displayTaxType = taxTypes.size === 1 ? [...taxTypes][0] : "mixed";
+      const displayTaxType = taxTypes.size === 1 ? [...taxTypes][0] : taxTypes.size ? "mixed" : "";
       const dateParts = getRocDateParts(data.invoiceDate);
-      const invoicePrefix = String(data.invoiceNo || "JB").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "JB";
+      const invoicePrefix = data.invoiceNo ? data.invoiceNo.toUpperCase() : "";
       const buyerName = data.invoiceType === "triplicate" ? data.buyerName : "";
       const buyerTaxId = data.invoiceType === "triplicate" ? data.buyerTaxId : "";
       const buyerAddress = data.invoiceType === "triplicate" ? data.buyerAddress : "";
@@ -692,12 +715,14 @@ const state = {
           `;
         }
         const amount = rowAmounts(row, data.taxRate);
+        const pending = row.priceType === "pending";
+        const paperUnit = row.priceType === "taxed" && row.qty ? amount.untaxed / row.qty : row.unit;
         return `
           <tr>
             <td class="item-name">${escapeHtml(row.name)}</td>
-            <td class="num">${formatPlain(row.qty)}</td>
-            <td class="num">${formatPlain(row.unit)}</td>
-            <td class="num">${formatPlain(amount.untaxed)}</td>
+            <td class="num">${new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 6 }).format(row.qty)}</td>
+            <td class="num">${pending ? "待確認" : new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 6 }).format(paperUnit)}</td>
+            <td class="num">${pending ? "待確認" : formatPlain(amount.untaxed)}</td>
             <td>${escapeHtml(data.memo)}</td>
           </tr>
         `;
@@ -706,11 +731,12 @@ const state = {
       return `
         <div class="invoice-paper invoice-template" aria-label="三聯式發票草稿預覽">
           <div class="invoice-title">
-            <div class="invoice-code">${escapeHtml(invoicePrefix)}</div>
+            <div class="invoice-code" style="font-size:12px;white-space:nowrap;">${escapeHtml(invoicePrefix)}</div>
             <h2>統一發票（三聯式）</h2>
             <div></div>
           </div>
-          <div class="invoice-period">${dateParts.periodYear}年　${dateParts.periodStart}、${dateParts.periodEnd}月份</div>
+          <div class="invoice-period">開票草稿｜${dateParts.periodYear}年　${dateParts.periodStart}、${dateParts.periodEnd}月份</div>
+          ${data.activeRows.some((row) => row.priceType === "pending") ? '<div class="invoice-note">價格類型待確認，合計尚未完整</div>' : ""}
           <div class="invoice-head-row">
             <div>買受人：<span class="invoice-fill">${escapeHtml(buyerName)}</span></div>
             <div class="invoice-date-text">
@@ -763,8 +789,8 @@ const state = {
               </table>
             </div>
             <div class="invoice-right-panel">
-              <div class="invoice-note-box">營業人蓋用統一發票專用章</div>
-              <div class="invoice-stamp-reminder">記得要蓋<br>發票章唷</div>
+              <div class="invoice-note-box">備註<div class="invoice-memo-content">${escapeHtml(data.memo)}</div></div>
+              <div class="invoice-stamp-reminder">營業人蓋用<br>統一發票專用章</div>
             </div>
           </div>
           <div class="invoice-grand-line">
@@ -773,6 +799,7 @@ const state = {
             <span>元</span>
           </div>
           <div class="invoice-footer-tip">※應稅、零稅率、免稅之銷售額應分別開立統一發票，並應於各該欄打「✓」。</div>
+          ${data.activeRows.some((row) => row.priceType === "taxed") ? '<div class="invoice-note">單價欄為未稅折算值；折算有小數時，以各列金額與合計核對。</div>' : ""}
         </div>
       `;
     }
@@ -833,12 +860,30 @@ const state = {
         generateSuggestions();
       }
       if (!state.bestPlan) return;
+      applySuggestion(0);
+    }
 
-      if (state.bestPlan.mode === "draft") {
-        body.innerHTML = "";
-        state.bestPlan.plan.rows.forEach((row) => makeRow(row));
-      }
+    function applySuggestion(index) {
+      const plan = state.draftPlans[index];
+      if (!plan) return;
+      if (window.capturePlanUndo) window.capturePlanUndo();
+      body.innerHTML = "";
+      plan.rows.forEach((row) => makeRow(row));
       updateTotals();
+      document.querySelectorAll("[data-apply-plan]").forEach((button) => {
+        const selected = Number(button.dataset.applyPlan) === index;
+        button.textContent = selected ? "已套用此版本" : "套用此版本";
+        button.setAttribute("aria-pressed", String(selected));
+        button.closest(".suggestion").classList.toggle("applied", selected);
+      });
+      document.getElementById("planStatus").textContent = `已套用版本 ${index + 1}，品項明細與草稿預覽已更新。`;
+    }
+
+    function invalidateSuggestions() {
+      state.bestPlan = null;
+      state.draftPlans = [];
+      document.getElementById("suggestions").innerHTML = "";
+      document.getElementById("planStatus").textContent = "";
     }
 
     async function downloadInvoiceImage() {
@@ -927,16 +972,25 @@ const state = {
     document.getElementById("copySummary").addEventListener("click", copySummary);
     document.getElementById("downloadInvoice").addEventListener("click", downloadInvoiceImage);
     document.getElementById("lookupByTaxId").addEventListener("click", lookupCompanyByTaxId);
+    document.getElementById("companyLookupResults").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-retry-lookup]");
+      if (button) button.dataset.retryLookup === "name" ? lookupCompanyByName() : lookupCompanyByTaxId();
+    });
     document.getElementById("printInvoice").addEventListener("click", () => {
       updateTotals();
       window.print();
     });
     document.getElementById("suggest").addEventListener("click", generateSuggestions);
     document.getElementById("applyBest").addEventListener("click", applyBestPlan);
-    document.getElementById("taxRate").addEventListener("input", updateTotals);
-    document.getElementById("targetAmount").addEventListener("input", () => {
-      state.bestPlan = null;
+    document.getElementById("suggestions").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-apply-plan]");
+      if (button) applySuggestion(Number(button.dataset.applyPlan));
     });
+    document.getElementById("taxRate").addEventListener("input", () => {
+      updateTotals();
+      invalidateSuggestions();
+    });
+    document.getElementById("targetAmount").addEventListener("input", invalidateSuggestions);
     document.getElementById("targetType").addEventListener("change", generateSuggestions);
     document.getElementById("serviceType").addEventListener("change", generateSuggestions);
     document.getElementById("splitCount").addEventListener("change", generateSuggestions);
@@ -954,6 +1008,7 @@ const state = {
       document.getElementById(id).addEventListener("change", updateTotals);
     });
     document.getElementById("buyerTaxId").addEventListener("input", () => {
+      state.companyRequestId += 1;
       const field = document.getElementById("buyerTaxId");
       field.value = field.value.replace(/\D/g, "").slice(0, 8);
       if (field.value.length === 8) scheduleCompanyLookup("taxId");
